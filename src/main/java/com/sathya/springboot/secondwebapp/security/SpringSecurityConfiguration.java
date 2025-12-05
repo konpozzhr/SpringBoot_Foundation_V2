@@ -3,11 +3,14 @@ package com.sathya.springboot.secondwebapp.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.function.Function;
 
@@ -19,19 +22,53 @@ public class SpringSecurityConfiguration {
 
     @Bean
     public InMemoryUserDetailsManager createUserDetailsManager(){
+
+        UserDetails userDetails1 = createNewUser("TEST", "TEST");
+        UserDetails userDetails2 = createNewUser("TEST1", "TEST1");
+
+        return new InMemoryUserDetailsManager(userDetails1, userDetails2);
+    }
+
+    private UserDetails createNewUser(String username, String password){
         Function<String, String> passwordEncoder = input -> passwordEncoder().encode(input);
+
         UserDetails userDetails = User.builder()
                 .passwordEncoder(passwordEncoder)
-                .username("TEST")
-                .password("TEST")
+                .username(username)
+                .password(password)
                 .roles("USERS", "ADMIN")
                 .build();
 
-        return new InMemoryUserDetailsManager(userDetails);
+        return userDetails;
     }
 
     @Bean
     public PasswordEncoder passwordEncoder(){
         return new BCryptPasswordEncoder();
+    }
+
+    // All urls are protected
+    // A login form is show for unauthorized request
+    // CSRF disable
+    // Frames
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception{
+        http.authorizeHttpRequests(
+                auth -> auth.anyRequest().authenticated()
+        );
+
+        http.formLogin(Customizer.withDefaults());
+//        http.csrf().disable();
+//        NEW way to disable CSRF for H2 console
+        http.csrf(csrf -> csrf
+                .ignoringRequestMatchers("/h2-console/**")
+        );
+//        http.headers().frameOptions().disable();
+//        NEW way to allow frames (needed for H2 console)
+        http.headers(headers -> headers
+                .frameOptions(frame -> frame.sameOrigin())
+        );
+        return http.build();
     }
 }
